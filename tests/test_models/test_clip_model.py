@@ -47,9 +47,7 @@ class CLIPAdapterModelTest(AdapterModelTesterMixin, CLIPModelTest):
         self.skipTest("CLIPAdapterModel does not support gradient checkpointing")
 
     @parameterized.expand(TEST_EAGER_MATCHES_SDPA_INFERENCE_PARAMETERIZATION)
-    @require_torch_sdpa
     def test_eager_matches_sdpa_inference(
         self, name, torch_dtype, padding_side, use_attention_mask, output_attentions, enable_kernels
     ):
-        # Explicitly skip for CLIPAdapterModel as it's a CLIP-like model
         self.skipTest(reason="CLIP-like models have a different implementation for SDPA tests")

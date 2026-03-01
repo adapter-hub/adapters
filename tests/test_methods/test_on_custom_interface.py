@@ -29,7 +29,7 @@ class CustomInterfaceModelTestBase(TextAdapterTestBase):
         intermediate_size=16,
         pad_token_id=0,
     )
-    tokenizer_name = "yujiepan/gemma-2-tiny-random"
+    tokenizer_name = "tests/fixtures/SiBERT"
     adapter_interface = AdapterModelInterface(
         adapter_methods=["bottleneck", "lora", "reft", "invertible"],
         model_embeddings="embed_tokens",

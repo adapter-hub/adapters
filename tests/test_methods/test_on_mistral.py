@@ -17,7 +17,7 @@ class MistralAdapterTestBase(TextAdapterTestBase):
         hidden_dropout_prob=0.1,
         pad_token_id=0,
     )
-    tokenizer_name = "HuggingFaceH4/zephyr-7b-beta"
+    tokenizer_name = "tests/fixtures/SiBERT"
 
 
 test_methods = generate_method_tests(MistralAdapterTestBase, not_supported=["PromptTuning", "ConfigUnion"])

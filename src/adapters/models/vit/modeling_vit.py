@@ -21,7 +21,13 @@ import torch
 
 from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
 from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
-from transformers.models.vit.modeling_vit import ViTLayer, ViTOutput, ViTSelfAttention, eager_attention_forward
+from transformers.models.vit.modeling_vit import (
+    ViTAttention,
+    ViTLayer,
+    ViTOutput,
+    ViTSelfAttention,
+    eager_attention_forward,
+)
 from transformers.utils import logging
 
 from .mixin_vit import ViTLayerAdaptersMixin, ViTOutputAdaptersMixin, ViTSelfAttentionAdaptersMixin
@@ -34,9 +40,13 @@ class ViTSelfAttentionWithAdapters(ViTSelfAttentionAdaptersMixin, ViTSelfAttenti
     def forward(
         self, hidden_states, head_mask: Optional[torch.Tensor] = None, output_attentions: bool = False
     ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor]]:
-        key_layer = self.transpose_for_scores(self.key(hidden_states))
-        value_layer = self.transpose_for_scores(self.value(hidden_states))
-        query_layer = self.transpose_for_scores(self.query(hidden_states))
+        batch_size = hidden_states.shape[0]
+        new_shape = batch_size, -1, self.num_attention_heads, self.attention_head_size
+
+        # Inline transpose operations (transpose_for_scores removed in transformers v4.52.x)
+        key_layer = self.key(hidden_states).view(*new_shape).transpose(1, 2)
+        value_layer = self.value(hidden_states).view(*new_shape).transpose(1, 2)
+        query_layer = self.query(hidden_states).view(*new_shape).transpose(1, 2)
 
         query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
 
@@ -67,9 +77,28 @@ class ViTSelfAttentionWithAdapters(ViTSelfAttentionAdaptersMixin, ViTSelfAttenti
         new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
         context_layer = context_layer.reshape(new_context_layer_shape)
 
-        outputs = (context_layer, attention_probs) if output_attentions else (context_layer,)
+        # In transformers v4.52.x, ViTSelfAttention.forward() always returns (context_layer, attention_probs)
+        # regardless of output_attentions parameter
+        return context_layer, attention_probs
 
-        return outputs
+
+class ViTAttentionWithAdapters(ViTAttention):
+    """
+    ViT Attention wrapper that accepts output_attentions parameter for compatibility.
+    In transformers v4.52.x, ViTAttention.forward() doesn't accept output_attentions,
+    but ViTLayer.forward() still passes it, so we need to intercept and ignore it.
+    ViTAttention.forward() returns a single tensor in v4.52.x.
+    """
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        head_mask: Optional[torch.Tensor] = None,
+        output_attentions: bool = False,  # Accept but ignore this parameter
+    ) -> torch.Tensor:
+        # Call parent's forward which only accepts hidden_states and head_mask
+        # Parent returns single tensor in v4.52.x
+        return super().forward(hidden_states, head_mask)
 
 
 class ViTOutputWithAdapters(ViTOutputAdaptersMixin, ViTOutput):
@@ -89,15 +118,14 @@ class ViTLayerWithAdapters(ViTLayerAdaptersMixin, ViTLayer):
         hidden_states: torch.Tensor,
         head_mask: Optional[torch.Tensor] = None,
         output_attentions: bool = False,
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor]]:
-        self_attention_outputs = self.attention(
-            self.layernorm_before(hidden_states),  # in ViT, layernorm is applied before self-attention
-            head_mask,
-            output_attentions=output_attentions,
-        )
-        attention_output = self_attention_outputs[0]
-        outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
+    ) -> torch.Tensor:
+        # In transformers v4.52.x, ViTLayer.forward() returns just a tensor, not a tuple
+        # The attention() call handles its own output_attentions internally
+        hidden_states_norm = self.layernorm_before(hidden_states)
+        attention_output = self.attention(hidden_states_norm, head_mask, output_attentions=output_attentions)
 
+        # attention_output is a single tensor in v4.52.x (from ViTAttention)
+        # first residual connection
         hidden_states = self.attention_adapters.bottleneck_layer_forward(attention_output, hidden_states, None)
 
         # in ViT, layernorm is also applied after self-attention
@@ -107,6 +135,4 @@ class ViTLayerWithAdapters(ViTLayerAdaptersMixin, ViTLayer):
         # second residual connection is done here
         layer_output = self.output(layer_output, hidden_states)
 
-        outputs = (layer_output,) + outputs
-
-        return outputs
+        return layer_output

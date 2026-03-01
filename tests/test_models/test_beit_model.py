@@ -10,3 +10,8 @@ from .base import AdapterModelTesterMixin
 class BeitAdapterModelTest(AdapterModelTesterMixin, BeitModelTest):
     all_model_classes = (BeitAdapterModel,)
     fx_compatible = False
+
+    def test_num_layers_is_small(self):
+        # BeitAdapterModelTest uses the same num_hidden_layers as BeitModelTest (4),
+        # which is an exception in the HF test. Skip this test for adapter models.
+        pass

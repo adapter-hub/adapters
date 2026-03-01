@@ -102,11 +102,7 @@ class GPTJAttentionWithAdapters(GPTJAttentionAdaptersMixin, GPTJAttention):
         attn_output = self.out_proj(attn_output)
         attn_output = self.resid_dropout(attn_output)
 
-        outputs = (attn_output, layer_past)
-        if output_attentions:
-            outputs += (attn_weights,)
-
-        return outputs  # a, present, (attentions)
+        return attn_output, attn_weights
 
 
 class GPTJBlockWithAdapters(GPTJDecoderBlockAdaptersMixin, GPTJBlock):
@@ -124,7 +120,7 @@ class GPTJBlockWithAdapters(GPTJDecoderBlockAdaptersMixin, GPTJBlock):
         adjust_tensors_for_parallel_(hidden_states, attention_mask)
         residual = hidden_states
         hidden_states = self.ln_1(hidden_states)
-        attn_outputs = self.attn(
+        attn_output, attn_weights = self.attn(
             hidden_states=hidden_states,
             layer_past=layer_past,
             attention_mask=attention_mask,
@@ -134,8 +130,6 @@ class GPTJBlockWithAdapters(GPTJDecoderBlockAdaptersMixin, GPTJBlock):
             output_attentions=output_attentions,
             cache_position=cache_position,
         )
-        attn_output = attn_outputs[0]  # output_attn: a, present, (attentions)
-        outputs = attn_outputs[1:]
 
         feed_forward_hidden_states = self.mlp(hidden_states)
         # See https://github.com/adapter-hub/adapters/pull/426#discussion_r994450898
@@ -143,9 +137,4 @@ class GPTJBlockWithAdapters(GPTJDecoderBlockAdaptersMixin, GPTJBlock):
 
         hidden_states = self.output_adapters(feed_forward_hidden_states, hidden_states, None)
 
-        if use_cache:
-            outputs = (hidden_states,) + outputs
-        else:
-            outputs = (hidden_states,) + outputs[1:]
-
-        return outputs  # hidden_states, present, (attentions)
+        return hidden_states, attn_weights

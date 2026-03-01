@@ -76,6 +76,50 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
         return decorator
 
+    def load_state_dict(self, state_dict, strict=True, assign=False):
+        """
+        Override load_state_dict to handle key remapping between static and flex models.
+
+        Static models (e.g., BartForConditionalGeneration, T5ForConditionalGeneration) use keys like
+        encoder.*, decoder.*, shared.* directly, while flex models wrap the base model in an attribute
+        (e.g., model.encoder.*, transformer.encoder.*) based on base_model_prefix.
+
+        This method automatically detects when remapping is needed and applies the transformation.
+        """
+        # Get the base model prefix (e.g., "model" for BART, "transformer" for T5)
+        # Check common wrapper attributes used by flex models
+        base_model_attr = None
+        for attr_name in ["model", "transformer"]:
+            if hasattr(self, attr_name):
+                base_model_attr = attr_name
+                break
+
+        if base_model_attr is None:
+            # No wrapper attribute found, use default behavior
+            return super().load_state_dict(state_dict, strict=strict, assign=assign)
+
+        # Check if we need to remap keys (detect static model state dict)
+        # Look for keys that should be wrapped but aren't
+        wrapper_prefix = f"{base_model_attr}."
+        needs_remapping = any(
+            key.startswith(("encoder.", "decoder.", "shared.")) and not key.startswith(wrapper_prefix)
+            for key in state_dict.keys()
+        )
+
+        if needs_remapping:
+            # Create new state dict with remapped keys
+            new_state_dict = {}
+            for key, value in state_dict.items():
+                if key.startswith(("encoder.", "decoder.", "shared.")):
+                    # Add wrapper prefix (e.g., model.encoder.*, transformer.decoder.*)
+                    new_key = f"{wrapper_prefix}{key}"
+                    new_state_dict[new_key] = value
+                else:
+                    new_state_dict[key] = value
+            state_dict = new_state_dict
+
+        return super().load_state_dict(state_dict, strict=strict, assign=assign)
+
     def _init_head_modules(self):
         # HACK connect adapters_config to base model -> this should move to a better place
         self.adapters_config = self.base_model.adapters_config
@@ -648,6 +692,19 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             for attr in ForwardContext.context_attributes:
                 if attr not in return_output and attr in all_outputs:
                     return_output[attr] = all_outputs[attr]
+            if isinstance(all_outputs, ModelOutput):
+                for attr in (
+                    "hidden_states",
+                    "attentions",
+                    "encoder_hidden_states",
+                    "encoder_attentions",
+                    "decoder_hidden_states",
+                    "decoder_attentions",
+                    "cross_attentions",
+                    "past_key_values",
+                ):
+                    if attr not in return_output and attr in all_outputs:
+                        return_output[attr] = all_outputs[attr]
         return return_output
 
     def get_labels_dict(self, head_name=None):

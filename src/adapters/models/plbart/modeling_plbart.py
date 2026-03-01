@@ -13,14 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """PyTorch PLBART model."""
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import torch
 import torch.utils.checkpoint
 from torch import nn
 
 from transformers.cache_utils import Cache, EncoderDecoderCache
-from transformers.models.plbart.modeling_plbart import PLBartAttention, PLBartDecoderLayer, PLBartEncoderLayer
+from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
+from transformers.models.plbart.modeling_plbart import (
+    PLBartAttention,
+    PLBartDecoderLayer,
+    PLBartEncoderLayer,
+    eager_attention_forward,
+)
 from transformers.utils import logging
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, match_attn_matrices_for_parallel
@@ -64,7 +70,6 @@ class PLBartAttentionWithAdapters(PLBartAttentionAdaptersMixin, PLBartAttention)
         # query_states = self.q_proj(hidden_states).view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
         query_states = self._shape(self.q_proj(hidden_states), -1, bsz)
         # >>> END AH Changes <<<
-        query_states = query_states * self.scaling
 
         if past_key_value is not None:
             if isinstance(past_key_value, EncoderDecoderCache):
@@ -80,8 +85,8 @@ class PLBartAttentionWithAdapters(PLBartAttentionAdaptersMixin, PLBartAttention)
         current_states = key_value_states if is_cross_attention else hidden_states
         if is_cross_attention and past_key_value is not None and is_updated:
             # reuse k,v, cross_attentions
-            key_states = curr_past_key_value.key_cache[self.layer_idx]
-            value_states = curr_past_key_value.value_cache[self.layer_idx]
+            key_states = curr_past_key_value.layers[self.layer_idx].keys
+            value_states = curr_past_key_value.layers[self.layer_idx].values
         else:
             key_states = self.k_proj(current_states)
             value_states = self.v_proj(current_states)
@@ -117,66 +122,31 @@ class PLBartAttentionWithAdapters(PLBartAttentionAdaptersMixin, PLBartAttention)
         bsz = query_states.size(0)
         # >>> END AH Changes <<<
 
-        proj_shape = (bsz * self.num_heads, -1, self.head_dim)
-        query_states = query_states.reshape(*proj_shape)
-        key_states = key_states.reshape(*proj_shape)
-        value_states = value_states.reshape(*proj_shape)
-
-        src_len = key_states.size(1)
-        attn_weights = torch.bmm(query_states, key_states.transpose(1, 2))
-
-        if attn_weights.size() != (bsz * self.num_heads, tgt_len, src_len):
-            raise ValueError(
-                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is"
-                f" {attn_weights.size()}"
-            )
-
+        # >>> START AH Changes <<<
         if attention_mask is not None:
-            attention_mask = attention_mask[:, :, :, : key_states.shape[-2]]
-            attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len) + attention_mask
-            attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
+            attention_mask = attention_mask[:, :, :, : key_states.shape[2]]
+        # >>> END AH Changes <<<
 
-        attn_weights = nn.functional.softmax(attn_weights, dim=-1)
+        attention_interface: Callable = eager_attention_forward
+        if self.config._attn_implementation != "eager":
+            attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
 
-        if layer_head_mask is not None:
-            if layer_head_mask.size() != (self.num_heads,):
-                raise ValueError(
-                    f"Head mask for a single layer should be of size {(self.num_heads,)}, but is"
-                    f" {layer_head_mask.size()}"
-                )
-            attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
-            attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
+        attn_output, attn_weights = attention_interface(
+            self,
+            query_states,
+            key_states,
+            value_states,
+            attention_mask,
+            dropout=0.0 if not self.training else self.dropout,
+            scaling=self.scaling,
+            output_attentions=output_attentions,
+            head_mask=layer_head_mask,
+        )
 
-        if output_attentions:
-            # this operation is a bit awkward, but it's required to
-            # make sure that attn_weights keeps its gradient.
-            # In order to do so, attn_weights have to be reshaped
-            # twice and have to be reused in the following
-            attn_weights_reshaped = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
-            attn_weights = attn_weights_reshaped.view(bsz * self.num_heads, tgt_len, src_len)
-        else:
-            attn_weights_reshaped = None
-
-        attn_probs = nn.functional.dropout(attn_weights, p=self.dropout, training=self.training)
-
-        attn_output = torch.bmm(attn_probs, value_states)
-
-        if attn_output.size() != (bsz * self.num_heads, tgt_len, self.head_dim):
-            raise ValueError(
-                f"`attn_output` should be of size {(bsz * self.num_heads, tgt_len, self.head_dim)}, but is"
-                f" {attn_output.size()}"
-            )
-
-        attn_output = attn_output.view(bsz, self.num_heads, tgt_len, self.head_dim)
-        attn_output = attn_output.transpose(1, 2)
-
-        # Use the `embed_dim` from the config (stored in the class) rather than `hidden_state` because `attn_output` can be
-        # partitioned across GPUs when using tensor-parallelism.
-        attn_output = attn_output.reshape(bsz, tgt_len, self.embed_dim)
-
+        attn_output = attn_output.reshape(bsz, tgt_len, -1).contiguous()
         attn_output = self.out_proj(attn_output)
 
-        return attn_output, attn_weights_reshaped, past_key_value
+        return attn_output, attn_weights, past_key_value
 
 
 class PLBartEncoderLayerWithAdapters(PLBartEncoderLayerAdaptersMixin, PLBartEncoderLayer):
@@ -253,7 +223,7 @@ class PLBartDecoderLayerWithAdapters(PLBartDecoderLayerAdaptersMixin, PLBartDeco
         encoder_attention_mask: Optional[torch.Tensor] = None,
         layer_head_mask: Optional[torch.Tensor] = None,
         cross_attn_layer_head_mask: Optional[torch.Tensor] = None,
-        past_key_value: Optional[Cache] = None,
+        past_key_values: Optional[Cache] = None,
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = True,
         cache_position: Optional[torch.Tensor] = None,
@@ -284,9 +254,9 @@ class PLBartDecoderLayerWithAdapters(PLBartDecoderLayerAdaptersMixin, PLBartDeco
         residual = hidden_states
 
         # Self Attention
-        hidden_states, self_attn_weights, past_key_value = self.self_attn(
+        hidden_states, self_attn_weights, past_key_values = self.self_attn(
             hidden_states=hidden_states,
-            past_key_value=past_key_value,
+            past_key_value=past_key_values,
             attention_mask=attention_mask,
             layer_head_mask=layer_head_mask,
             output_attentions=output_attentions,
@@ -305,12 +275,12 @@ class PLBartDecoderLayerWithAdapters(PLBartDecoderLayerAdaptersMixin, PLBartDeco
         if encoder_hidden_states is not None:
             residual = hidden_states
 
-            hidden_states, cross_attn_weights, past_key_value = self.encoder_attn(
+            hidden_states, cross_attn_weights, past_key_values = self.encoder_attn(
                 hidden_states=hidden_states,
                 key_value_states=encoder_hidden_states,
                 attention_mask=encoder_attention_mask,
                 layer_head_mask=cross_attn_layer_head_mask,
-                past_key_value=past_key_value,
+                past_key_value=past_key_values,
                 output_attentions=output_attentions,
             )
             hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
@@ -340,6 +310,6 @@ class PLBartDecoderLayerWithAdapters(PLBartDecoderLayerAdaptersMixin, PLBartDeco
             outputs += (self_attn_weights, cross_attn_weights)
 
         if use_cache:
-            outputs += (past_key_value,)
+            outputs += (past_key_values,)
 
         return outputs

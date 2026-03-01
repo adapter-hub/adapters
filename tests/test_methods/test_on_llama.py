@@ -20,7 +20,7 @@ class LlamaAdapterTestBase(TextAdapterTestBase):
         hidden_act="gelu",
         pad_token_id=0,
     )
-    tokenizer_name = "openlm-research/open_llama_13b"
+    tokenizer_name = "tests/fixtures/SiBERT"
 
 
 method_tests = generate_method_tests(LlamaAdapterTestBase, not_supported=["PromptTuning"])

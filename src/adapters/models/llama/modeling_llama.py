@@ -90,13 +90,7 @@ class LlamaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
 
         attention_interface: Callable = eager_attention_forward
         if self.config._attn_implementation != "eager":
-            if self.config._attn_implementation == "sdpa" and kwargs.get("output_attentions", False):
-                logger.warning_once(
-                    "`torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling back to "
-                    'eager attention. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
-                )
-            else:
-                attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
+            attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
 
         attn_output, attn_weights = attention_interface(
             self,
@@ -109,8 +103,7 @@ class LlamaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
             **kwargs,
         )
 
-        attn_output = attn_output.transpose(1, 2).contiguous()
-        attn_output = attn_output.reshape(bsz, q_len, -1)
+        attn_output = attn_output.reshape(bsz, q_len, -1).contiguous()
 
         attn_output = self.o_proj(attn_output)
         return attn_output, attn_weights
@@ -154,9 +147,4 @@ class LlamaDecoderLayerWithAdapters(LlamaDecoderLayerMixin, LlamaDecoderLayer):
         hidden_states = self.mlp(hidden_states)
         hidden_states = self.output_adapters(hidden_states, residual, None)
 
-        outputs = (hidden_states,)
-
-        if output_attentions:
-            outputs += (self_attn_weights,)
-
-        return outputs
+        return hidden_states

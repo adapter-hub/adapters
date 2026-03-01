@@ -18,7 +18,7 @@ class PLBartAdapterTestBase(TextAdapterTestBase):
         decoder_ffn_dim=4,
         scale_embedding=False,  # Required for embedding tests
     )
-    tokenizer_name = "uclanlp/plbart-base"
+    tokenizer_name = "tests/fixtures/SiBERT"
 
 
 method_tests = generate_method_tests(PLBartAdapterTestBase, not_supported=["PromptTuning"])
