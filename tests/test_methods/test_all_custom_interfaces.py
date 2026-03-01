@@ -146,6 +146,28 @@ class CustomInterfaceTestBase(AdapterMethodBaseTestMixin):
             self.skipTest("LoRA not supported by this model.")
         self.run_forward_test(model, LoRAConfig(init_weights="bert", intermediate_lora=True, output_lora=True))
 
+    def test_lora_forward_all_attn_matrices(self):
+        """Test LoRA with attn_matrices=["q","k","v","o"] on models with fused QKV.
+
+        Regression test for a bug where LoRAMergedLinear.get_n_heads() counted
+        "o" in attn_matrices, causing a shape mismatch in the grouped conv1d.
+        The "o" projection is handled by a separate LoRALinear layer and should
+        not affect the merged QKV layer's head count.
+        """
+        model = self.get_model()
+        adapter_methods = model.base_model.adapter_interface.adapter_methods
+        if "lora" not in adapter_methods:
+            self.skipTest("LoRA not supported by this model.")
+        self.run_forward_test(
+            model,
+            LoRAConfig(
+                init_weights="bert",
+                intermediate_lora=True,
+                output_lora=True,
+                attn_matrices=["q", "k", "v", "o"],
+            ),
+        )
+
     def test_ia3_forward(self):
         """Test that IA3 forward pass works."""
         model = self.get_model()

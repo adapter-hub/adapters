@@ -1138,7 +1138,10 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
         return new_module
 
     def get_n_heads(self, lora: Union[LoRA, IA3, LoRAConfig]):
-        return len(set(lora.attn_matrices))
+        # Only count Q/K/V matrices for the merged (fused QKV) layer.
+        # The output projection ("o") is handled by a separate LoRALinear layer,
+        # so including it here causes a shape mismatch in the grouped conv1d.
+        return len(set(lora.attn_matrices) & {"q", "k", "v"})
 
     def _get_lora_shapes(self, config: LoRAConfig):
         n_heads = self.get_n_heads(config)
