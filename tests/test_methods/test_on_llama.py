@@ -20,7 +20,7 @@ class LlamaAdapterTestBase(TextAdapterTestBase):
         hidden_act="gelu",
         pad_token_id=0,
     )
-    tokenizer_name = "HuggingFaceM4/tiny-random-LlamaForCausalLM"
+    tokenizer_name = "tests/fixtures/SiBERT"
 
 
 method_tests = generate_method_tests(LlamaAdapterTestBase, not_supported=["PromptTuning"])
