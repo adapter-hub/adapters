@@ -64,9 +64,12 @@ jobs:
         run: |
           pip install torch==2.3
           pip install .[sklearn,testing,sentencepiece,torchvision]
-      - name: Test
+      - name: HuggingFace Login
+        if: env.HF_TOKEN != ''
+        run: huggingface-cli login --token $HF_TOKEN --add-to-git-credential
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      - name: Test
         run: |
           make test-adapter-methods
   test_adapter_models:
