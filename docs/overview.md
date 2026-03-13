@@ -56,6 +56,7 @@ Identifiers and configuration classes are explained in more detail in the [next 
 | `prefix_tuning_flat` | `PrefixTuningConfig(flat=True)` | [Prefix Tuning](methods.html#prefix-tuning) |
 | `lora` | `LoRAConfig()` | [LoRA](methods.html#lora) |
 | `vera` | `VeraConfig()` | [Vera](methods.html#vera) |
+| `adamix` | `AdaMixConfig()` | [AdaMix](methods.html#adamix)
 | `ia3` | `IA3Config()` | [IA³](methods.html#ia-3) |
 | `mam` | `MAMConfig()` | [Mix-and-Match Adapters](method_combinations.html#mix-and-match-adapters) |
 | `unipelt` | `UniPELTConfig()` | [UniPELT](method_combinations.html#unipelt) |
