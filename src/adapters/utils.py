@@ -405,6 +405,54 @@ def get_from_cache(
     return cache_path
 
 
+# Safe extraction utils copied from https://github.com/keras-team/keras/blob/47d1cba8ece3cd0776d95e8007dbd0ad5a8c641a/keras/src/utils/file_utils.py#L43-L87.
+
+
+def resolve_path(path):
+    return os.path.realpath(os.path.abspath(path))
+
+
+def is_path_in_dir(path, base_dir):
+    return resolve_path(os.path.join(base_dir, path)).startswith(base_dir)
+
+
+def is_link_in_dir(info, base):
+    tip = resolve_path(os.path.join(base, os.path.dirname(info.name)))
+    return is_path_in_dir(info.linkname, base_dir=tip)
+
+
+def filter_safe_zipinfos(members):
+    base_dir = resolve_path(".")
+    for finfo in members:
+        valid_path = False
+        if is_path_in_dir(finfo.filename, base_dir):
+            valid_path = True
+            yield finfo
+        if not valid_path:
+            logger.warning(
+                "Skipping invalid path during archive extraction: " f"'{finfo.filename}'.",
+                stacklevel=2,
+            )
+
+
+def filter_safe_tarinfos(members):
+    base_dir = resolve_path(".")
+    for finfo in members:
+        valid_path = False
+        if finfo.issym() or finfo.islnk():
+            if is_link_in_dir(finfo, base_dir):
+                valid_path = True
+                yield finfo
+        elif is_path_in_dir(finfo.name, base_dir):
+            valid_path = True
+            yield finfo
+        if not valid_path:
+            logger.warning(
+                "Skipping invalid path during archive extraction: " f"'{finfo.name}'.",
+                stacklevel=2,
+            )
+
+
 def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, force_extract=False, **kwargs):
     """
     This method downloads a file and caches it.
@@ -451,15 +499,15 @@ def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, fo
         if is_zipfile(output_path):
             with ZipFile(output_path, "r") as zip_file:
                 # we want to extract all files into a flat folder structure (i.e. no subfolders)
-                for file in zip_file.namelist():
+                for finfo in filter_safe_zipinfos(zip_file.infolist()):
                     # check if we have a valid file
-                    if basename(file):
-                        file_data = zip_file.read(file)
-                        with open(join(output_path_extracted, basename(file)), "wb") as f:
+                    if basename(finfo.filename):
+                        file_data = zip_file.read(finfo.filename)
+                        with open(join(output_path_extracted, basename(finfo.filename)), "wb") as f:
                             f.write(file_data)
         elif tarfile.is_tarfile(output_path):
             tar_file = tarfile.open(output_path)
-            tar_file.extractall(output_path_extracted)
+            tar_file.extractall(output_path_extracted, members=filter_safe_tarinfos(tar_file))
             tar_file.close()
         else:
             raise EnvironmentError("Archive format of {} could not be identified".format(output_path))
