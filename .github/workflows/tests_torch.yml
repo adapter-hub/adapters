@@ -39,7 +39,7 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
       - name: Install
         run: |
-          pip install torch==2.3
+          pip install torch==2.10 torchvision==0.25
           pip install .[quality]
       - name: Check Quality and Repo Consistency
         run: |
@@ -62,7 +62,7 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install torch==2.3
+          pip install torch==2.10 torchvision==0.25
           pip install .[sklearn,testing,sentencepiece,torchvision]
       - name: Test
         run: |
@@ -85,7 +85,7 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install torch==2.3
+          pip install torch==2.10 torchvision==0.25
           pip install .[sklearn,testing,sentencepiece,torchvision]
       - name: Test
         run: |
@@ -108,7 +108,7 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install torch==2.3
+          pip install torch==2.10 torchvision==0.25
           pip install .[sklearn,testing,sentencepiece,torchvision]
           pip install conllu seqeval
       - name: Test Examples
