@@ -71,6 +71,7 @@ _import_structure = {
         "StaticAdapterFusionConfig",
         "UniPELTConfig",
         "VeraConfig",
+        "AdaMixConfig",
     ],
     "context": [
         "AdapterSetup",
@@ -198,6 +199,7 @@ if TYPE_CHECKING:
         StaticAdapterFusionConfig,
         UniPELTConfig,
         VeraConfig,
+        AdaMixConfig,
     )
     from .context import AdapterSetup, ForwardContext
     from .heads import (
