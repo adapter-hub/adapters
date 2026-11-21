@@ -34,6 +34,24 @@ class SafetensorsTest(unittest.TestCase):
 
         return in_data
 
+    def test_load_active_adapter_warns_only_on_an_inactive_forward(self):
+        source = BertAdapterModel(self.config)
+        source.add_adapter("test")
+        model = BertAdapterModel(self.config)
+        inputs = torch.tensor([[1, 2]])
+        with tempfile.TemporaryDirectory() as dirname:
+            source.save_adapter(dirname, "test", use_safetensors=True)
+            with self.assertLogs("adapters.model_mixin", level="WARNING") as logs:
+                model.load_adapter(dirname, set_active=True, use_safetensors=True)
+                model(inputs)
+                self.assertEqual(logs.records, [])
+                model.set_active_adapters(None)
+                model(inputs)
+        self.assertEqual(
+            [record.getMessage() for record in logs.records],
+            ["There are adapters available but none are activated for the forward pass."],
+        )
+
     def test_safetensors_adapter(self):
         model1 = BertAdapterModel(self.config)
         model2 = copy.deepcopy(model1)

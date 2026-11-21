@@ -1833,10 +1833,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             name (str): LoRA module to merge.
         """
-        with ForwardContext(self, torch.empty(0, 1)):
-            # check if there are shared parameters between adapter weights
-            if self.base_model.shared_parameters:
-                ForwardContext.get_context().shared_parameters = self.base_model.shared_parameters
+        with ForwardContext() as context:
+            context.shared_parameters = self.base_model.shared_parameters
 
             for module in self.modules():
                 if isinstance(module, LoRALayer):
@@ -1847,9 +1845,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         Resets weights of a LoRA module merged using `model.merge_adapter(name)`.
         """
-        with ForwardContext(self, torch.empty(0, 1)):
-            if self.base_model.shared_parameters:
-                ForwardContext.get_context().shared_parameters = self.base_model.shared_parameters
+        with ForwardContext() as context:
+            context.shared_parameters = self.base_model.shared_parameters
 
             for module in self.modules():
                 if isinstance(module, LoRALayer):
