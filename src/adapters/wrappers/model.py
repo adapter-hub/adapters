@@ -63,6 +63,9 @@ def replace_with_adapter_class(module: nn.Module, modules_with_adapters) -> None
             (MODEL_MIXIN_MAPPING[module.__class__.__name__], module.__class__),
             {},
         )
+        if model_class.forward is ModelWithHeadsAdaptersMixin.forward:
+            # Keep the native signature so Trainer retains the model's input columns.
+            model_class.forward = ForwardContext.wrap(module.__class__.forward)
         module.__class__ = model_class
         _reregister_can_record_outputs(module)
     elif module.__class__.__module__.startswith("transformers.models") or module.__class__.__module__.startswith(
