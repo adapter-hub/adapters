@@ -20,6 +20,8 @@ from transformers import (
     DataCollatorForLanguageModeling,
     GlueDataset,
     GlueDataTrainingArguments,
+    T5Config,
+    T5ForConditionalGeneration,
     Trainer,
     TrainingArguments,
 )
@@ -34,6 +36,30 @@ class TestAdapterTrainer(unittest.TestCase):
             num_attention_heads=4,
             intermediate_size=37,
         )
+
+    def test_t5_forward_inputs_survive_column_pruning(self):
+        config = T5Config(
+            vocab_size=32, d_model=16, d_kv=4, d_ff=32, num_layers=1, num_heads=4, decoder_start_token_id=0
+        )
+        model = T5ForConditionalGeneration(config)
+        adapters.init(model)
+        model.add_adapter("test")
+        model.train_adapter("test")
+        example = {"input_ids": [3, 4, 0], "attention_mask": [1, 1, 0], "labels": [5, 1], "unused": 1}
+        with TemporaryDirectory() as tmpdirname:
+            trainer = AdapterTrainer(
+                model=model,
+                args=TrainingArguments(output_dir=tmpdirname, report_to=[]),
+                train_dataset=[example],
+            )
+            batch = next(iter(trainer.get_train_dataloader()))
+
+        self.assertEqual(set(batch), {"input_ids", "attention_mask", "labels"})
+        model.eval()
+        with torch.no_grad():
+            expected = model(**batch).logits
+            actual = model(batch["input_ids"], batch["attention_mask"], labels=batch["labels"]).logits
+        torch.testing.assert_close(actual, expected)
 
     def test_resume_training(self):
 

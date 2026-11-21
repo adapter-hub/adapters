@@ -111,16 +111,8 @@ class T5ModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixi
                 yield i, layer
 
 
-# Stating "labels" and "input_ids" explicitly is required for training using Trainer class
 class T5ForCondiditionalGenerationWithHeadsMixin(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin):
-    def forward(
-        self,
-        *args,
-        input_ids: Optional[torch.LongTensor] = None,
-        labels: Optional[torch.LongTensor] = None,
-        **kwargs,
-    ):
-        return super().forward(*args, input_ids=input_ids, labels=labels, **kwargs)
+    """Adds adapters to T5 and MT5 conditional generation models."""
 
 
 # Stating "start_positions"/"end_positions" and "input_ids" explicitly is required for training using Trainer class
