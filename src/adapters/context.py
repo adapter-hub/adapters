@@ -93,7 +93,7 @@ class ForwardContext(ContextManager):
     # Additional used attributes not exposed to the user
     # - prompt_tokens_length: length of the prompt tokens
 
-    def __init__(self, model, *args, **kwargs):
+    def __init__(self, model=None, *args, **kwargs):
         # If the model has a method ``forward_context()``, use it to create the context.
         for arg_name in self.context_args:
             setattr(self, arg_name, kwargs.pop(arg_name, None))
