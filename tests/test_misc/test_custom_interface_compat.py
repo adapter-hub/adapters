@@ -71,6 +71,31 @@ class CustomInterfaceCompatTest(unittest.TestCase):
     )
     bert_bn_rewrites = [(".attention_adapters.", ".attention.output."), (".output_adapters.", ".output.")]
 
+    def test_bottleneck_hooks_use_their_own_layer_norms(self):
+        model = AutoModel.from_config(
+            BertConfig(vocab_size=20, hidden_size=16, num_hidden_layers=2, num_attention_heads=2, intermediate_size=32)
+        )
+        adapters.init(model, interface=self.bert_interface)
+        model.add_adapter("bottleneck", config=adapters.DoubleSeqBnConfig())
+        model.set_active_adapters("bottleneck")
+        model.eval()
+
+        observed = []
+
+        def record_layer_norm(_module, args):
+            observed.append(args[2])
+
+        expected = []
+        for layer in model.encoder.layer:
+            layer.attention_adapters.register_forward_pre_hook(record_layer_norm)
+            layer.output_adapters.register_forward_pre_hook(record_layer_norm)
+            expected.extend((layer.attention.output.LayerNorm, layer.output.LayerNorm))
+
+        with torch.no_grad():
+            model(input_ids=torch.tensor([[1, 2, 3]]))
+
+        self.assertEqual(observed, expected)
+
     def create_twin_models(self, config, adapter_interface, hf_auto_model_class):
         model1 = hf_auto_model_class.from_config(config)
         adapters.init(model1, interface=adapter_interface)
