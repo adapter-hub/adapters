@@ -424,12 +424,12 @@ def init_bottleneck(model):
             if o_proj := multigetattr(self_attn, model.adapter_interface.attn_o_proj, None):
                 if not hasattr(layer, "attention_adapters"):
                     layer.attention_adapters = BottleneckLayer("mh_adapter", is_layer_hooked=True)
-                    ln_1_get_fn = lambda: multigetattr(layer, model.adapter_interface.layer_ln_1, None)
+                    ln_1_get_fn = partial(multigetattr, layer, model.adapter_interface.layer_ln_1, None)
                     o_proj.register_forward_hook(partial(hook_fn, layer.attention_adapters, ln_1_get_fn))
         if layer_output_proj := multigetattr(layer, model.adapter_interface.layer_output_proj, None):
             if not hasattr(layer, "output_adapters"):
                 layer.output_adapters = BottleneckLayer("output_adapter", is_layer_hooked=True)
-                ln_2_get_fn = lambda: multigetattr(layer, model.adapter_interface.layer_ln_2, None)
+                ln_2_get_fn = partial(multigetattr, layer, model.adapter_interface.layer_ln_2, None)
                 layer_output_proj.register_forward_hook(partial(hook_fn, layer.output_adapters, ln_2_get_fn))
         if cross_attn := multigetattr(layer, model.adapter_interface.layer_cross_attn, None):
             if not hasattr(cross_attn, "cross_attention_adapters"):
